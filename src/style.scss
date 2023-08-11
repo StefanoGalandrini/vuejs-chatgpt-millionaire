@@ -1,0 +1,24 @@
+// Fonts
+@import url("https://fonts.googleapis.com/css2?family=Mulish:wght@400;700&display=swap");
+
+//Variables
+$color-bg: #09073f;
+$color-questions: #5f449e;
+$color-discarded: #e18c1d;
+$color-chosen: #51941e;
+$color-prize: #edbf37;
+
+// Reset
+*,
+*::before,
+*::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+:root {
+	font-family: "Mulish", sans-serif;
+	color: white;
+	background-color: $color-bg;
+}

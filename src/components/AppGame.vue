@@ -4,31 +4,62 @@ import axios from "axios";
 export default {
 	data() {
 		return {
-			chatHistory: [],
+			chatHistory: [
+				{
+					role: "user",
+					content:
+						'Stiamo simulando il gioco "Chi vuole essere milionario?". In questo gioco, il concorrente deve rispondere a una serie di massimo 15 domande a difficoltà crescente,partendo da un livello molto facile, per vincere un premio massimo di un milione di euro. Per ogni domanda ci saranno quattro risposte, ma una sola è corretta. Ad esempio, se la domanda fosse "Qual è la capitale della Spagna", le risposte potrebbero essere "Barcellona, Madrid, Malaga, Siviglia". Tu sei il direttore del gioco, e senza mai fare riferimento a te stesso devi generare una domanda lunga al massimo 25 parole su un argomento a tua scelta, e fornire quattro possibili risposte indicando quale è la risposta corretta. Devi restituire come risposta solo un array con tre elementi: nel primo metterai solo la domanda, nel secondo un array con le quattro risposte, nel terzo l\'indice della risposta esatta. Non devi aggiungere altre spiegazioni. Ad ogni richiesta troverai tutti gli array che hai generato in modo da aumentare gradualmente la difficoltà delle domande. Inizia con la prima domanda, molto facile.',
+				},
+			],
 			currentImage: "",
 			currentQuestion: "",
 			currentAnswers: [],
 			level: 1,
 			selectedAnswer: null,
+			baseUrl: "http://localhost:8000",
+			chatEndpoint: "/api/chat",
+			imageEndpoint: "/api/image",
+			isLoading: false,
 		};
 	},
+
 	methods: {
-		startGame() {
-			axios
-				.get("/api/getQuestion", {
-					params: {
-						chatHistory: this.chatHistory,
-					},
-				})
-				.then((response) => {
-					this.currentQuestion = response.data.question;
-					this.currentAnswers = response.data.answers;
-					this.currentImage = response.data.image;
-					this.selectedAnswer = null; // Reset della risposta selezionata
-				})
-				.catch((error) => {
-					console.error("Errore nel caricamento della domanda:", error);
-				});
+		async startGame() {
+			// Show Loader
+			this.isLoading = true;
+
+			const lastMessageContent =
+				this.chatHistory[this.chatHistory.length - 1].content;
+
+			const chatPayload = {prompt: lastMessageContent};
+			const chatResponse = await this.makeServerRequest(
+				this.chatEndpoint,
+				chatPayload,
+			);
+			this.currentQuestion = chatResponse;
+			console.log(chatResponse);
+
+			// Aggiunge la risposta alla chatHistory
+			this.chatHistory.push({
+				role: "system",
+				content: chatResponse,
+			});
+
+			const imagePayload = {prompt: chatResponse[0]};
+			const imageResponse = await this.makeServerRequest(
+				this.imageEndpoint,
+				imagePayload,
+			);
+			this.currentImage = imageResponse;
+
+			// Hide Loader
+			this.isLoading = false;
+		},
+
+		async makeServerRequest(endpoint, payload) {
+			const fullUrl = this.baseUrl + endpoint;
+			const response = await axios.post(fullUrl, payload);
+			return response.data.response;
 		},
 
 		selectAnswer(index) {
@@ -52,11 +83,16 @@ export default {
 
 <template>
 	<div class="game-grid">
-		<!-- Game Grid -->
-		<div class="image-section">
-			<img :src="currentImage" alt="Domanda Immagine" />
+		<!-- Overlay and Loader -->
+		<div v-if="isLoading" class="overlay">
+			<img src="../assets/images/loader.gif" alt="loader" />
 		</div>
-		<div class="question-section">
+
+		<!-- Game Grid -->
+		<div v-if="!isLoading" class="image-section">
+			<img :src="currentImage" alt="" />
+		</div>
+		<div v-if="!isLoading" class="question-section">
 			<p>{{ currentQuestion }}</p>
 			<div class="answers">
 				<button
@@ -124,7 +160,7 @@ export default {
 		display: flex;
 		flex-direction: column-reverse;
 		justify-content: space-around;
-		align-items: space-between;
+		// align-items: space-between;
 
 		div {
 			display: flex;
@@ -134,6 +170,21 @@ export default {
 				font-weight: bold;
 			}
 		}
+	}
+}
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 99;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	img {
+		width: 300px;
+		z-index: 200;
 	}
 }
 </style>

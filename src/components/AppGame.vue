@@ -1,16 +1,16 @@
 <script>
 import axios from "axios";
+import AppResult from "./AppResult.vue";
 
 export default {
+	components: {
+		AppResult,
+	},
+
 	data() {
 		return {
-			chatHistory: [
-				{
-					role: "user",
-					content:
-						'Stiamo simulando il gioco "Chi vuole essere milionario?". In questo gioco, il concorrente deve rispondere a una serie di massimo 15 domande a difficoltà crescente,partendo da un livello molto facile, per vincere un premio massimo di un milione di euro. Per ogni domanda ci saranno quattro risposte, ma una sola è corretta. Ad esempio, se la domanda fosse "Qual è la capitale della Spagna", le risposte potrebbero essere "Barcellona, Madrid, Malaga, Siviglia". Tu sei il direttore del gioco, e senza mai fare riferimento a te stesso devi generare una domanda lunga al massimo 25 parole su un argomento a tua scelta, e fornire quattro possibili risposte indicando quale è la risposta corretta. Devi restituire come risposta solo un oggetto con tre elementi: nel primo metterai solo la domanda con la chiave "question"; nel secondo, con la chiave "anwers", un array con le quattro risposte precedute dalle prime quattro lettere dell\'alfabeto e i due punti con uno spazio dopo (esempio: "A: Risposta 1"); nel terzo, con la chiave "correct", l\'indice della risposta esatta. Non devi aggiungere altre spiegazioni. Ad ogni richiesta troverai tutti gli array che hai generato in modo da aumentare gradualmente la difficoltà delle domande. Inizia con la prima domanda, molto facile.',
-				},
-			],
+			chatHistory: `Stiamo simulando "Chi vuole essere milionario?". Il concorrente risponde a 15 domande crescenti in difficoltà. Ogni domanda ha una sola risposta corretta tra quattro opzioni. Ad esempio: "Qual è la capitale della Spagna?" - "A: Barcellona, B: Madrid, C: Malaga, D: Siviglia". Come direttore del gioco, genera domande di massimo 25 parole su vari argomenti: storia, geografia, scienza, cultura, letteratura, musica ecc. Ogni nuova domanda deve essere su un argomento diverso e di maggiore difficoltà rispetto alla precedente. Restituisci un oggetto con "question", "answers" (es. "A: Risposta 1") e "correct" (indice numerico della posizione nell'array della risposta giusta). Senza aggiungere spiegazioni o altro. Le domande precedenti saranno elencate di seguito per evitare ripetizioni e per dare un riferimento sulla difficoltà.`,
+
 			currentImage: "",
 			currentQuestion: "",
 			currentAnswers: [],
@@ -30,25 +30,38 @@ export default {
 			// Show Loader
 			this.isLoading = true;
 
-			const lastMessageContent =
-				this.chatHistory[this.chatHistory.length - 1].content;
-
-			const chatPayload = {prompt: lastMessageContent};
+			let chatPayload;
+			if (this.level === 1) {
+				chatPayload = {prompt: this.chatHistory};
+			} else {
+				chatPayload = {
+					prompt:
+						this.chatHistory +
+						" Prosegui generando una domanda inedita e di maggiore difficoltà.",
+				};
+			}
+			console.log(chatPayload);
 			const chatResponse = await this.makeServerRequest(
 				this.chatEndpoint,
 				chatPayload,
 			);
-			this.currentQuestion = chatResponse.question;
-			this.currentAnswers = chatResponse.answers;
-			this.correct = chatResponse.correct;
+
+			if (chatResponse) {
+				this.currentQuestion = chatResponse.question;
+				this.currentAnswers = chatResponse.answers;
+				this.correct = chatResponse.correct;
+			} else {
+				setTimeout(() => {
+					this.startGame();
+				}, 3000);
+			}
 
 			// Aggiunge la risposta alla chatHistory
-			this.chatHistory.push({
-				role: "system",
-				content: chatResponse,
-			});
+			this.chatHistory += ` ${this.currentQuestion} `;
 
-			const imagePayload = {prompt: chatResponse[0]};
+			console.log(chatResponse, " ", this.correct + 1);
+
+			const imagePayload = {prompt: chatResponse.question};
 			const imageResponse = await this.makeServerRequest(
 				this.imageEndpoint,
 				imagePayload,
@@ -98,13 +111,20 @@ export default {
 			return "";
 		},
 
-		getResult() {
-			if (this.selectedAnswerIndex === this.correct) {
-				this.level++;
-				return "CORRETTA!";
-			} else {
-				return "sbagliata...";
-			}
+		handleContinueGame(nextLevel) {
+			this.level = nextLevel;
+			this.currentImage = "";
+			this.currentQuestion = "";
+			this.currentAnswers = [];
+			this.correct = null;
+			this.isAnswerSelected = false;
+			this.selectedAnswerIndex = null;
+			this.startGame();
+		},
+
+		handleStopGame() {
+			// Qui puoi gestire la logica per fermare il gioco
+			// Per esempio, potresti mostrare la schermata finale, salvare il punteggio, ecc.
 		},
 	},
 
@@ -152,8 +172,12 @@ export default {
 		</div>
 
 		<div v-if="isAnswerSelected">
-			<p class="answered">La risposta è...</p>
-			<p class="result">{{ getResult() }}</p>
+			<AppResult
+				:level="level"
+				:selectedAnswerIndex="selectedAnswerIndex"
+				:correctAnswerIndex="correct"
+				@continueGame="handleContinueGame"
+				@stopGame="handleStopGame" />
 		</div>
 	</div>
 </template>

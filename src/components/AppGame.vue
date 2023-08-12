@@ -9,7 +9,7 @@ export default {
 
 	data() {
 		return {
-			chatHistory: `Stiamo simulando "Chi vuole essere milionario?". Il concorrente risponde a 15 domande crescenti in difficoltà. Ogni domanda ha una sola risposta corretta tra quattro opzioni. Ad esempio: "Qual è la capitale della Spagna?" - "A: Barcellona, B: Madrid, C: Malaga, D: Siviglia". Come direttore del gioco, genera domande di massimo 25 parole su vari argomenti: storia, geografia, scienza, cultura, letteratura, musica ecc. Ogni nuova domanda deve essere su un argomento diverso e di maggiore difficoltà rispetto alla precedente. Restituisci un oggetto con "question", "answers" (es. "A: Risposta 1") e "correct" (indice numerico della posizione nell'array della risposta giusta). Senza aggiungere spiegazioni o altro. Le domande precedenti saranno elencate di seguito per evitare ripetizioni e per dare un riferimento sulla difficoltà.`,
+			chatHistory: `Sei il conduttore del gioco "Chi vuol essere milionario". Devi fare una domanda partendo da un livello facile, e indicare quattro risposte diverse di cui una sola è la risposta corretta mentre le altre sono sbagliate. Ad esempio: "Qual è la capitale della Spagna?" - "A: Barcellona, B: Madrid, C: Malaga, D: Siviglia". Genera domande di massimo 25 parole su vari argomenti e risposte precedute dalle prime lettere dell'alfabeto (ad esempio: "A: Risposta 1"). Restituisci un oggetto con le seguenti chiavi in ordine: "question" con la domanda in formato stringa; "answers" con un array contenente le quattro risposte; "correct" con l'indice numerico della posizione nell'array della risposta corretta. Devono sempre esserci tutte e tre le chiavi richieste. Non devi aggiungere spiegazioni o altro testo. Ogni nuova domanda deve essere di maggiore difficoltà rispetto a quelle già fatte. Le domande già fatte saranno elencate di seguito per evitare ripetizioni e per dare un riferimento sulla difficoltà. `,
 
 			currentImage: "",
 			currentQuestion: "",
@@ -30,21 +30,24 @@ export default {
 			// Show Loader
 			this.isLoading = true;
 
-			let chatPayload;
+			let chatPayload = "";
 			if (this.level === 1) {
-				chatPayload = {prompt: this.chatHistory};
+				chatPayload = this.chatHistory;
 			} else {
-				chatPayload = {
-					prompt:
-						this.chatHistory +
-						" Prosegui generando una domanda inedita e di maggiore difficoltà.",
-				};
+				chatPayload =
+					this.chatHistory +
+					" Prosegui generando un'altra domanda diversa da quelle già fatte e di maggiore difficoltà e restituisci l'oggetto con le chiavi richieste. ";
 			}
-			console.log(chatPayload);
-			const chatResponse = await this.makeServerRequest(
+
+			const chatResponseData = await this.makeServerRequest(
 				this.chatEndpoint,
 				chatPayload,
 			);
+
+			const chatResponse =
+				typeof chatResponseData === "string"
+					? JSON.parse(chatResponseData)
+					: chatResponseData;
 
 			if (chatResponse) {
 				this.currentQuestion = chatResponse.question;
@@ -59,9 +62,7 @@ export default {
 			// Aggiunge la risposta alla chatHistory
 			this.chatHistory += ` ${this.currentQuestion} `;
 
-			console.log(chatResponse, " ", this.correct + 1);
-
-			const imagePayload = {prompt: chatResponse.question};
+			const imagePayload = chatResponse.question;
 			const imageResponse = await this.makeServerRequest(
 				this.imageEndpoint,
 				imagePayload,
@@ -70,11 +71,12 @@ export default {
 
 			// Hide Loader
 			this.isLoading = false;
+			console.log(this.currentQuestion, this.correct + 1);
 		},
 
 		async makeServerRequest(endpoint, payload) {
 			const fullUrl = this.baseUrl + endpoint;
-			const response = await axios.post(fullUrl, payload);
+			const response = await axios.post(fullUrl, {prompt: payload});
 			return response.data.response;
 		},
 
